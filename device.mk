@@ -40,6 +40,7 @@ include device/google/gs-common/betterbug/betterbug.mk
 ifneq ($(filter oriole raven bluejay, $(TARGET_PRODUCT)),)
   include device/google/gs-common/bcmbt/dump/dumplog.mk
 endif
+include device/google/gs-common/fingerprint/fingerprint.mk
 
 TARGET_BOARD_PLATFORM := gs101
 DEVICE_IS_64BIT_ONLY ?= $(if $(filter %_64,$(TARGET_PRODUCT)),true,false)
@@ -894,6 +895,7 @@ endif
 # Exynos RIL and telephony
 # Multi SIM(DSDS)
 SIM_COUNT := 2
+$(call soong_config_set,sim,sim_count,$(SIM_COUNT))
 SUPPORT_MULTI_SIM := true
 # Support NR
 SUPPORT_NR := true
