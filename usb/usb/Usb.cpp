@@ -46,6 +46,7 @@ namespace usb_flags = android::hardware::usb::flags;
 
 using aidl::android::frameworks::stats::IStats;
 using android::base::GetProperty;
+using android::base::SetProperty;
 using android::base::Tokenize;
 using android::base::Trim;
 using android::hardware::google::pixel::getStatsService;
@@ -1222,12 +1223,17 @@ ScopedAStatus UsbExt::setPortSecurityStateInner(PortSecurityState in_state) {
     string ccToggleEnablePath = std::string{i2cPath} + "/" + kCcToggleEnable;
     string dataPathEnablePath = std::string{i2cPath} + "/" + kDataPathEnable;
 
+    string denyNewUsbProp = "security.deny_new_usb2";
+
     // '&' is used instead of '&&' intentionally to disable short-circuit evaluation
 
     switch (in_state) {
         case PortSecurityState::DISABLED: {
             if (WriteStringToFileOrLog("0", ccToggleEnablePath)
                     & WriteStringToFileOrLog("0", dataPathEnablePath)) {
+                if (!SetProperty(denyNewUsbProp, "1")) {
+                    return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_DENY_NEW_USB_WRITE);
+                }
                 return ScopedAStatus::ok();
             }
             return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_FILE_WRITE);
@@ -1235,6 +1241,9 @@ ScopedAStatus UsbExt::setPortSecurityStateInner(PortSecurityState in_state) {
         case PortSecurityState::CHARGING_ONLY_IMMEDIATE: {
             if (WriteStringToFileOrLog("0", dataPathEnablePath)
                     & WriteStringToFileOrLog("1", ccToggleEnablePath)) {
+                if (!SetProperty(denyNewUsbProp, "1")) {
+                    return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_DENY_NEW_USB_WRITE);
+                }
                 return ScopedAStatus::ok();
             }
             return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_FILE_WRITE);
@@ -1242,6 +1251,9 @@ ScopedAStatus UsbExt::setPortSecurityStateInner(PortSecurityState in_state) {
         case PortSecurityState::CHARGING_ONLY: {
             if (WriteStringToFileOrLog("-1", dataPathEnablePath)
                     & WriteStringToFileOrLog("1", ccToggleEnablePath)) {
+                if (!SetProperty(denyNewUsbProp, "1")) {
+                    return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_DENY_NEW_USB_WRITE);
+                }
                 return ScopedAStatus::ok();
             }
             return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_FILE_WRITE);
@@ -1249,6 +1261,9 @@ ScopedAStatus UsbExt::setPortSecurityStateInner(PortSecurityState in_state) {
         case PortSecurityState::ENABLED: {
             if (WriteStringToFileOrLog("1", dataPathEnablePath)
                     & WriteStringToFileOrLog("1", ccToggleEnablePath)) {
+                if (!SetProperty(denyNewUsbProp, "0")) {
+                    return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_DENY_NEW_USB_WRITE);
+                }
                 return ScopedAStatus::ok();
             }
             return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_FILE_WRITE);
