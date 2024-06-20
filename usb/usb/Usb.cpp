@@ -1214,10 +1214,10 @@ static int WriteStringToFileOrLog(string val, string path) {
     return 0;
 }
 
-ScopedAStatus UsbExt::setPortSecurityStateInner(PortSecurityState in_state) {
+int UsbExt::setPortSecurityStateInner(PortSecurityState in_state) {
     std::string_view i2cPath = mUsb->getI2cClientPath();
     if (i2cPath.empty()) {
-        return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_NO_I2C_PATH);
+        return IUsbExt::ERROR_NO_I2C_PATH;
     }
 
     string ccToggleEnablePath = std::string{i2cPath} + "/" + kCcToggleEnable;
@@ -1232,45 +1232,45 @@ ScopedAStatus UsbExt::setPortSecurityStateInner(PortSecurityState in_state) {
             if (WriteStringToFileOrLog("0", ccToggleEnablePath)
                     & WriteStringToFileOrLog("0", dataPathEnablePath)) {
                 if (!SetProperty(denyNewUsbProp, "1")) {
-                    return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_DENY_NEW_USB_WRITE);
+                    return IUsbExt::ERROR_DENY_NEW_USB_WRITE;
                 }
-                return ScopedAStatus::ok();
+                return IUsbExt::NO_ERROR;
             }
-            return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_FILE_WRITE);
+            return IUsbExt::ERROR_FILE_WRITE;
         }
         case PortSecurityState::CHARGING_ONLY_IMMEDIATE: {
             if (WriteStringToFileOrLog("0", dataPathEnablePath)
                     & WriteStringToFileOrLog("1", ccToggleEnablePath)) {
                 if (!SetProperty(denyNewUsbProp, "1")) {
-                    return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_DENY_NEW_USB_WRITE);
+                    return IUsbExt::ERROR_DENY_NEW_USB_WRITE);
                 }
-                return ScopedAStatus::ok();
+                return IUsbExt::NO_ERROR;
             }
-            return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_FILE_WRITE);
+            return IUsbExt::ERROR_FILE_WRITE;
         }
         case PortSecurityState::CHARGING_ONLY: {
             if (WriteStringToFileOrLog("-1", dataPathEnablePath)
                     & WriteStringToFileOrLog("1", ccToggleEnablePath)) {
                 if (!SetProperty(denyNewUsbProp, "1")) {
-                    return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_DENY_NEW_USB_WRITE);
+                    return IUsbExt::ERROR_DENY_NEW_USB_WRITE;
                 }
-                return ScopedAStatus::ok();
+                return IUsbExt::NO_ERROR;
             }
-            return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_FILE_WRITE);
+            return IUsbExt::ERROR_FILE_WRITE;
         }
         case PortSecurityState::ENABLED: {
             if (WriteStringToFileOrLog("1", dataPathEnablePath)
                     & WriteStringToFileOrLog("1", ccToggleEnablePath)) {
                 if (!SetProperty(denyNewUsbProp, "0")) {
-                    return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_DENY_NEW_USB_WRITE);
+                    return IUsbExt::ERROR_DENY_NEW_USB_WRITE;
                 }
-                return ScopedAStatus::ok();
+                return IUsbExt::NO_ERROR;
             }
-            return ScopedAStatus::fromServiceSpecificError(IUsbExt::ERROR_FILE_WRITE);
+            return IUsbExt::ERROR_FILE_WRITE;
         }
     }
 
-    return ScopedAStatus::ok();
+    return IUsbExt::NO_ERROR;
 }
 
 // keep in sync with frameworks/base/core/java/android/ext/settings/UsbPortSecurity.java
@@ -1297,8 +1297,12 @@ UsbExt::UsbExt(std::shared_ptr<Usb> usb) : mUsb(usb) {
 }
 
 ScopedAStatus UsbExt::setPortSecurityState(const std::string& in_portName,
-        PortSecurityState in_state) {
-    return setPortSecurityStateInner(in_state);
+        PortSecurityState in_state, const shared_ptr<IPortSecurityStateCallback>& in_callback) {
+    int res = setPortSecurityStateInner(in_state);
+    if (in_callback != nullptr) {
+        in_callback->onSetPortSecurityStateCompleted(res, 0, "");
+    }
+    return ScopedAStatus::ok();
 }
 
 } // namespace usb
