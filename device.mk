@@ -16,7 +16,7 @@
 
 include device/google/gs-common/device.mk
 include device/google/gs-common/gs_watchdogd/watchdog.mk
-include device/google/gs-common/ramdump/ramdump.mk
+include device/google/gs-common/ramdump_and_coredump/ramdump_and_coredump.mk
 include device/google/gs-common/soc/soc.mk
 include device/google/gs-common/soc/freq.mk
 include device/google/gs-common/modem/modem.mk
@@ -25,6 +25,7 @@ include device/google/gs-common/thermal/dump/thermal.mk
 include device/google/gs-common/thermal/thermal_hal/device.mk
 include device/google/gs-common/pixel_metrics/pixel_metrics.mk
 include device/google/gs-common/performance/perf.mk
+include device/google/gs-common/power/power.mk
 include device/google/gs-common/display/dump.mk
 include device/google/gs101/dumpstate/item.mk
 include device/google/gs-common/radio/dump.mk
@@ -36,9 +37,11 @@ include device/google/gs-common/sota_app/factoryota.mk
 include device/google/gs-common/misc_writer/misc_writer.mk
 include device/google/gs-common/gyotaku_app/gyotaku.mk
 include device/google/gs-common/bootctrl/bootctrl_aidl.mk
+include device/google/gs-common/betterbug/betterbug.mk
 ifneq ($(filter oriole raven bluejay, $(TARGET_PRODUCT)),)
   include device/google/gs-common/bcmbt/dump/dumplog.mk
 endif
+include device/google/gs-common/fingerprint/fingerprint.mk
 
 TARGET_BOARD_PLATFORM := gs101
 DEVICE_IS_64BIT_ONLY ?= $(if $(filter %_64,$(TARGET_PRODUCT)),true,false)
@@ -179,6 +182,11 @@ PRODUCT_PROPERTY_OVERRIDES += \
 	telephony.active_modems.max_count=2
 
 USE_LASSEN_OEMHOOK := true
+# The "power-anomaly-sitril" is added into PRODUCT_SOONG_NAMESPACES when
+# $(USE_LASSEN_OEMHOOK) is true and $(BOARD_WITHOUT_RADIO) is not true.
+ifneq ($(BOARD_WITHOUT_RADIO),true)
+    PRODUCT_SOONG_NAMESPACES += vendor/google/tools/power-anomaly-sitril
+endif
 
 # Use for GRIL
 USES_LASSEN_MODEM := true
@@ -239,9 +247,8 @@ PRODUCT_COPY_FILES += \
 	frameworks/native/data/etc/android.hardware.vulkan.version-1_3.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.vulkan.version.xml \
 	frameworks/native/data/etc/android.hardware.vulkan.level-1.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.vulkan.level.xml \
 	frameworks/native/data/etc/android.hardware.vulkan.compute-0.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.vulkan.compute.xml \
-	frameworks/native/data/etc/android.software.contextualsearch.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.contextualsearch.xml \
-	frameworks/native/data/etc/android.software.vulkan.deqp.level-2023-03-01.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.vulkan.deqp.level.xml \
-	frameworks/native/data/etc/android.software.opengles.deqp.level-2023-03-01.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.opengles.deqp.level.xml
+	frameworks/native/data/etc/android.software.vulkan.deqp.level-2024-03-01.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.vulkan.deqp.level.xml \
+	frameworks/native/data/etc/android.software.opengles.deqp.level-2024-03-01.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.opengles.deqp.level.xml
 
 ifeq ($(USE_SWIFTSHADER),true)
 PRODUCT_VENDOR_PROPERTIES += \
@@ -510,10 +517,6 @@ PRODUCT_PACKAGES += \
 
 # for now include gralloc here. should come from hardware/google_devices/exynos5
 PRODUCT_PACKAGES += \
-	android.hardware.graphics.mapper@4.0-impl \
-	android.hardware.graphics.allocator-V1-service
-
-PRODUCT_PACKAGES += \
 	android.hardware.memtrack-service.pixel \
 	libion_exynos \
 	libion
@@ -744,6 +747,8 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
 	debug.stagefright.c2inputsurface=-1 \
 
+PRODUCT_PROPERTY_OVERRIDES += media.c2.hal.selection=aidl
+
 # 2. OpenMAX IL
 PRODUCT_COPY_FILES += \
 	device/google/gs101/media_codecs.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs.xml \
@@ -795,7 +800,9 @@ $(call inherit-product, system/core/trusty/trusty-base.mk)
 include device/google/gs-common/trusty/trusty.mk
 
 # Trusty unit test tool
-PRODUCT_PACKAGES_DEBUG += trusty-ut-ctrl
+PRODUCT_PACKAGES_DEBUG += \
+    trusty-ut-ctrl \
+    tipc-test
 
 include device/google/gs101/confirmationui/confirmationui.mk
 
@@ -819,6 +826,10 @@ PRODUCT_PRODUCT_PROPERTIES += \
 	persist.bluetooth.bqr.event_mask=30 \
 	persist.bluetooth.bqr.min_interval_ms=500
 endif
+
+# Enable Bluetooth AutoOn feature
+PRODUCT_PRODUCT_PROPERTIES += \
+    bluetooth.server.automatic_turn_on=true
 
 #VNDK
 PRODUCT_PACKAGES += \
@@ -1026,7 +1037,9 @@ PRODUCT_SOONG_NAMESPACES += \
 	vendor/google_devices/gs101/proprietary/gchips/tpu/darwinn_logging_service \
 	vendor/google_devices/gs101/proprietary/gchips/tpu/nnapi_stable_aidl \
 	vendor/google_devices/gs101/proprietary/gchips/tpu/aidl \
-	vendor/google_devices/gs101/proprietary/gchips/tpu/hal
+	vendor/google_devices/gs101/proprietary/gchips/tpu/hal \
+	vendor/google_devices/gs101/proprietary/gchips/tpu/tachyon/api \
+	vendor/google_devices/gs101/proprietary/gchips/tpu/tachyon/service
 # TPU firmware
 PRODUCT_PACKAGES += edgetpu-abrolhos.fw
 
@@ -1119,3 +1132,10 @@ include hardware/google/pixel/HardwareInfo/HardwareInfo.mk
 
 # Touch service
 include device/google/gs-common/touch/twoshay/aidl_gs101.mk
+include device/google/gs-common/touch/twoshay/twoshay.mk
+
+# Allow longer timeout for incident report generation in bugreport
+# Overriding in /product partition instead of /vendor intentionally,
+# since it can't be overridden from /vendor.
+PRODUCT_PRODUCT_PROPERTIES += \
+	dumpstate.strict_run=false
