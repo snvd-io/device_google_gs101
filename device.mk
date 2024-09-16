@@ -1088,7 +1088,7 @@ endif
 include hardware/google/pixel/wifi_ext/device.mk
 
 # Battery Stats Viewer
-PRODUCT_PACKAGES_DEBUG += BatteryStatsViewer
+#PRODUCT_PACKAGES_DEBUG += BatteryStatsViewer
 
 # Install product specific framework compatibility matrix
 # (TODO: b/169535506) This includes the FCM for system_ext and product partition.
